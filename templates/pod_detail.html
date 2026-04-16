@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>POD #{{ pod.id }} – Lionrock Haulage</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #f0f2f5;
+    color: #1a1a2e;
+  }
+  header {
+    background: #1a1a2e;
+    color: white;
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .back-btn {
+    color: #8899bb;
+    text-decoration: none;
+    font-size: 20px;
+    line-height: 1;
+  }
+  header .title { font-size: 17px; font-weight: 700; }
+  header .sub   { font-size: 12px; color: #8899bb; }
+  .print-btn {
+    margin-left: auto;
+    background: rgba(255,255,255,0.1);
+    color: white;
+    border: 1px solid rgba(255,255,255,0.2);
+    padding: 7px 14px;
+    border-radius: 7px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .container { max-width: 760px; margin: 0 auto; padding: 20px 16px 40px; }
+
+  /* Status banner */
+  .status-banner {
+    border-radius: 10px;
+    padding: 14px 18px;
+    margin-bottom: 16px;
+    font-weight: 700;
+    font-size: 15px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .status-delivered { background: #dcfce7; color: #166534; border: 1.5px solid #86efac; }
+  .status-failed    { background: #fee2e2; color: #991b1b; border: 1.5px solid #fca5a5; }
+
+  .section {
+    background: white;
+    border-radius: 10px;
+    padding: 18px;
+    margin-bottom: 14px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  }
+  .section-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.7px;
+    margin-bottom: 14px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #f0f0f0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .compliance-tag {
+    margin-left: auto;
+    font-size: 9px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .tag-dvla { background: #dbeafe; color: #1d4ed8; }
+  .tag-hmrc { background: #dcfce7; color: #166534; }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .field-row { margin-bottom: 12px; }
+  .field-row:last-child { margin-bottom: 0; }
+  .field-label { font-size: 11px; color: #999; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 3px; }
+  .field-value { font-size: 15px; color: #1a1a2e; font-weight: 500; }
+  .field-value.mono { font-family: monospace; font-size: 14px; letter-spacing: 0.5px; }
+  .field-value.empty { color: #ccc; font-style: italic; font-size: 13px; }
+
+  /* Signature display */
+  .sig-display {
+    border: 1.5px solid #e5e7eb;
+    border-radius: 8px;
+    background: #fafafa;
+    padding: 6px;
+    text-align: center;
+  }
+  .sig-display img { max-width: 100%; max-height: 130px; display: block; margin: 0 auto; }
+  .sig-name { font-size: 11px; color: #888; text-align: center; margin-top: 6px; }
+
+  /* Audit trail */
+  .audit-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid #f5f5f5;
+    font-size: 13px;
+  }
+  .audit-row:last-child { border-bottom: none; }
+  .audit-key { color: #888; }
+  .audit-val { font-weight: 600; font-family: monospace; font-size: 12px; }
+  .audit-ok  { color: #16a34a; }
+
+  @media print {
+    header .print-btn { display: none; }
+    body { background: white; }
+    .container { padding: 0; }
+    .section { box-shadow: none; border: 1px solid #e5e7eb; }
+  }
+
+  @media (max-width: 600px) {
+    .grid-2 { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <a href="/dashboard" class="back-btn">←</a>
+  <div>
+    <div class="title">POD #{{ pod.id }}</div>
+    <div class="sub">{{ pod.delivery_date }} · {{ pod.delivery_time[:5] }}</div>
+  </div>
+  <button class="print-btn" onclick="window.print()">🖨️ Print</button>
+</header>
+
+<div class="container">
+
+  <!-- Status -->
+  <div class="status-banner {{ 'status-delivered' if pod.status == 'delivered' else 'status-failed' }}">
+    {{ '✅ Delivered Successfully' if pod.status == 'delivered' else '❌ Delivery Failed / Refused' }}
+    {% if pod.notes %}
+    <span style="font-weight:400;font-size:13px;margin-left:auto">{{ pod.notes }}</span>
+    {% endif %}
+  </div>
+
+  <!-- Delivery info -->
+  <div class="section">
+    <div class="section-title"><span>📋</span> Delivery Information <span class="compliance-tag tag-hmrc">HMRC</span></div>
+    <div class="grid-2">
+      <div class="field-row">
+        <div class="field-label">Date</div>
+        <div class="field-value">{{ pod.delivery_date }}</div>
+      </div>
+      <div class="field-row">
+        <div class="field-label">Time</div>
+        <div class="field-value">{{ pod.delivery_time[:5] }}</div>
+      </div>
+      <div class="field-row">
+        <div class="field-label">Consignment Ref</div>
+        <div class="field-value mono">{{ pod.consignment_ref }}</div>
+      </div>
+      <div class="field-row">
+        <div class="field-label">CMR Number</div>
+        <div class="field-value mono {% if not pod.cmr_number %}empty{% endif %}">{{ pod.cmr_number or '—' }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Vehicle & Driver -->
+  <div class="section">
+    <div class="section-title"><span>🚛</span> Vehicle & Driver <span class="compliance-tag tag-dvla">DVLA</span></div>
+    <div class="grid-2">
+      <div class="field-row">
+        <div class="field-label">Vehicle Registration</div>
+        <div class="field-value mono" style="font-size:18px;font-weight:700">{{ pod.vehicle_reg }}</div>
+      </div>
+      <div class="field-row">
+        <div class="field-label">Vehicle Type</div>
+        <div class="field-value {% if not pod.vehicle_type %}empty{% endif %}">{{ pod.vehicle_type or '—' }}</div>
+      </div>
+      <div class="field-row">
+        <div class="field-label">Driver Name</div>
+        <div class="field-value">{{ pod.driver_name }}</div>
+      </div>
+      <div class="field-row">
+        <div class="field-label">Driver Licence No.</div>
+        <div class="field-value mono">{{ pod.driver_licence }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Addresses -->
+  <div class="section">
+    <div class="section-title"><span>📍</span> Addresses <span class="compliance-tag tag-hmrc">HMRC</span></div>
+    <div class="grid-2">
+      <div class="field-row">
+        <div class="field-label">Collection Address</div>
+        <div class="field-value" style="white-space:pre-line">{{ pod.collection_address }}</div>
+      </div>
+      <div class="field-row">
+        <div class="field-label">Delivery Address</div>
+        <div class="field-value" style="white-space:pre-line">{{ pod.delivery_address }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Goods -->
+  <div class="section">
+    <div class="section-title"><span>📦</span> Goods Details <span class="compliance-tag tag-hmrc">HMRC</span></div>
+    <div class="field-row">
+      <div class="field-label">Description</div>
+      <div class="field-value">{{ pod.goods_description }}</div>
+    </div>
+    <div class="grid-2" style="margin-top:12px">
+      <div class="field-row">
+        <div class="field-label">Weight</div>
+        <div class="field-value {% if not pod.weight_kg %}empty{% endif %}">{{ (pod.weight_kg|string + ' kg') if pod.weight_kg else '—' }}</div>
+      </div>
+      <div class="field-row">
+        <div class="field-label">Quantity</div>
+        <div class="field-value {% if not pod.quantity %}empty{% endif %}">{{ pod.quantity or '—' }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Customer -->
+  <div class="section">
+    <div class="section-title"><span>🏢</span> Customer / Recipient</div>
+    <div class="grid-2">
+      <div class="field-row">
+        <div class="field-label">Recipient Name</div>
+        <div class="field-value">{{ pod.customer_name }}</div>
+      </div>
+      <div class="field-row">
+        <div class="field-label">Company</div>
+        <div class="field-value {% if not pod.customer_company %}empty{% endif %}">{{ pod.customer_company or '—' }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Signatures -->
+  <div class="section">
+    <div class="section-title"><span>✍️</span> Signatures</div>
+    <div class="grid-2">
+      <div>
+        <div class="sig-display">
+          <img src="{{ pod.driver_signature }}" alt="Driver Signature">
+        </div>
+        <div class="sig-name">Driver: {{ pod.driver_name }}</div>
+      </div>
+      <div>
+        <div class="sig-display">
+          <img src="{{ pod.recipient_signature }}" alt="Recipient Signature">
+        </div>
+        <div class="sig-name">Recipient: {{ pod.customer_name }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Audit Trail -->
+  <div class="section">
+    <div class="section-title"><span>🔒</span> Audit Trail</div>
+    <div class="audit-row">
+      <span class="audit-key">Record ID</span>
+      <span class="audit-val">#{{ pod.id }}</span>
+    </div>
+    <div class="audit-row">
+      <span class="audit-key">Created (UTC)</span>
+      <span class="audit-val">{{ pod.created_at }}</span>
+    </div>
+    <div class="audit-row">
+      <span class="audit-key">Driver Signature</span>
+      <span class="audit-val audit-ok">✓ Captured</span>
+    </div>
+    <div class="audit-row">
+      <span class="audit-key">Recipient Signature</span>
+      <span class="audit-val audit-ok">✓ Captured</span>
+    </div>
+    <div class="audit-row">
+      <span class="audit-key">DVLA Fields</span>
+      <span class="audit-val audit-ok">✓ Reg · Licence · Driver</span>
+    </div>
+    <div class="audit-row">
+      <span class="audit-key">HMRC Fields</span>
+      <span class="audit-val audit-ok">✓ Consignment · Addresses · Goods</span>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

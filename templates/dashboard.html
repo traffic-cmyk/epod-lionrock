@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ePOD Dashboard – Lionrock Haulage</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #f0f2f5;
+    color: #1a1a2e;
+  }
+  header {
+    background: #1a1a2e;
+    color: white;
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  header .logo { font-size: 20px; font-weight: 700; }
+  header .sub  { font-size: 12px; color: #8899bb; }
+  .header-right { margin-left: auto; display: flex; gap: 10px; align-items: center; }
+  .btn-new {
+    background: #22c55e;
+    color: white;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 13px;
+    text-decoration: none;
+    border: none;
+    cursor: pointer;
+  }
+
+  .container { max-width: 1000px; margin: 0 auto; padding: 24px 16px; }
+
+  /* Stats bar */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .stat-card {
+    background: white;
+    border-radius: 10px;
+    padding: 16px;
+    text-align: center;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  }
+  .stat-card .val { font-size: 28px; font-weight: 700; }
+  .stat-card .lbl { font-size: 11px; color: #888; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .stat-card.green .val { color: #16a34a; }
+  .stat-card.red   .val { color: #dc2626; }
+  .stat-card.blue  .val { color: #2563eb; }
+
+  /* Filter bar */
+  .filter-bar {
+    background: white;
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 20px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  }
+  .filter-bar label { font-size: 13px; font-weight: 600; color: #555; }
+  .filter-bar input[type=date], .filter-bar input[type=text] {
+    padding: 7px 11px;
+    border: 1.5px solid #e5e7eb;
+    border-radius: 7px;
+    font-size: 14px;
+    color: #1a1a2e;
+  }
+  .filter-bar input:focus { outline: none; border-color: #1a1a2e; }
+  .btn-filter {
+    padding: 8px 16px;
+    background: #1a1a2e;
+    color: white;
+    border: none;
+    border-radius: 7px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .btn-reset {
+    padding: 8px 12px;
+    background: none;
+    border: 1.5px solid #e5e7eb;
+    border-radius: 7px;
+    font-size: 13px;
+    cursor: pointer;
+    color: #555;
+  }
+  .search-box {
+    flex: 1;
+    min-width: 160px;
+  }
+
+  /* Day group */
+  .day-group { margin-bottom: 24px; }
+  .day-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .day-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: #1a1a2e;
+  }
+  .day-count {
+    background: #e0e7ff;
+    color: #3730a3;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 20px;
+  }
+
+  /* POD cards */
+  .pod-card {
+    background: white;
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 12px;
+    align-items: center;
+    text-decoration: none;
+    color: inherit;
+    transition: box-shadow 0.15s;
+    border-left: 4px solid transparent;
+  }
+  .pod-card:hover { box-shadow: 0 3px 10px rgba(0,0,0,0.1); }
+  .pod-card.delivered { border-left-color: #22c55e; }
+  .pod-card.failed    { border-left-color: #ef4444; }
+
+  .pod-time {
+    font-size: 13px;
+    font-weight: 700;
+    color: #6b7280;
+    min-width: 45px;
+    text-align: center;
+  }
+  .pod-main .ref { font-size: 14px; font-weight: 700; }
+  .pod-main .details { font-size: 12px; color: #888; margin-top: 2px; }
+  .pod-main .details span { margin-right: 10px; }
+
+  .pod-badges { display: flex; flex-direction: column; gap: 4px; align-items: flex-end; }
+  .badge {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 20px;
+    white-space: nowrap;
+  }
+  .badge-delivered { background: #dcfce7; color: #166534; }
+  .badge-failed    { background: #fee2e2; color: #991b1b; }
+  .badge-reg       { background: #f1f5f9; color: #475569; }
+
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: #9ca3af;
+  }
+  .empty-state .icon { font-size: 40px; margin-bottom: 12px; }
+  .empty-state p { margin-bottom: 16px; }
+
+  /* Export button */
+  .btn-export {
+    padding: 8px 14px;
+    background: white;
+    border: 1.5px solid #e5e7eb;
+    border-radius: 7px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    color: #555;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .btn-export:hover { background: #f9fafb; }
+
+  @media (max-width: 600px) {
+    .pod-card { grid-template-columns: 1fr; }
+    .pod-time { text-align: left; }
+    .pod-badges { flex-direction: row; align-items: flex-start; }
+    .stats { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="logo">⚡ ePOD Dashboard</div>
+    <div class="sub">Lionrock Haulage – DVLA &amp; HMRC Compliant Records</div>
+  </div>
+  <div class="header-right">
+    <button class="btn-export" onclick="exportCSV()">📥 Export CSV</button>
+    <a href="/" class="btn-new">+ New POD</a>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- Stats -->
+  {% set total     = namespace(n=0) %}
+  {% set delivered = namespace(n=0) %}
+  {% set failed    = namespace(n=0) %}
+  {% for date, pods in grouped.items() %}
+    {% for p in pods %}
+      {% set total.n = total.n + 1 %}
+      {% if p.status == 'delivered' %}{% set delivered.n = delivered.n + 1 %}{% endif %}
+      {% if p.status == 'failed'    %}{% set failed.n    = failed.n    + 1 %}{% endif %}
+    {% endfor %}
+  {% endfor %}
+
+  <div class="stats">
+    <div class="stat-card blue">
+      <div class="val">{{ total.n }}</div>
+      <div class="lbl">Total PODs</div>
+    </div>
+    <div class="stat-card green">
+      <div class="val">{{ delivered.n }}</div>
+      <div class="lbl">Delivered</div>
+    </div>
+    <div class="stat-card red">
+      <div class="val">{{ failed.n }}</div>
+      <div class="lbl">Failed</div>
+    </div>
+    <div class="stat-card">
+      <div class="val">{{ grouped|length }}</div>
+      <div class="lbl">Days</div>
+    </div>
+  </div>
+
+  <!-- Filter bar -->
+  <div class="filter-bar">
+    <label>Date:</label>
+    <input type="date" id="dateFilter" value="{{ date_filter }}">
+    <input type="text" id="searchFilter" class="search-box" placeholder="Search ref, driver, customer, reg...">
+    <button class="btn-filter" onclick="applyFilter()">Filter</button>
+    {% if date_filter %}
+    <a href="/dashboard" class="btn-reset">Clear</a>
+    {% endif %}
+  </div>
+
+  <!-- Grouped PODs -->
+  {% if grouped %}
+    {% for date, pods in grouped.items() %}
+    <div class="day-group" data-date="{{ date }}">
+      <div class="day-header">
+        <div class="day-title">📅 {{ date }}</div>
+        <div class="day-count">{{ pods|length }} delivery{% if pods|length != 1 %}s{% endif %}</div>
+      </div>
+      {% for pod in pods %}
+      <a href="/pod/{{ pod.id }}" class="pod-card {{ pod.status }}" data-search="{{ (pod.consignment_ref + ' ' + pod.driver_name + ' ' + pod.customer_name + ' ' + (pod.customer_company or '') + ' ' + pod.vehicle_reg)|lower }}">
+        <div class="pod-time">{{ pod.delivery_time[:5] }}</div>
+        <div class="pod-main">
+          <div class="ref">{{ pod.consignment_ref }}{% if pod.cmr_number %} · CMR {{ pod.cmr_number }}{% endif %}</div>
+          <div class="details">
+            <span>🚛 {{ pod.vehicle_reg }}</span>
+            <span>👤 {{ pod.driver_name }}</span>
+            <span>🏢 {{ pod.customer_name }}{% if pod.customer_company %} – {{ pod.customer_company }}{% endif %}</span>
+          </div>
+        </div>
+        <div class="pod-badges">
+          <span class="badge badge-{{ pod.status }}">{{ '✅ Delivered' if pod.status == 'delivered' else '❌ Failed' }}</span>
+          <span class="badge badge-reg">{{ pod.vehicle_reg }}</span>
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+    {% endfor %}
+  {% else %}
+    <div class="empty-state">
+      <div class="icon">📭</div>
+      <p>No PODs found{% if date_filter %} for {{ date_filter }}{% endif %}.</p>
+      <a href="/" class="btn-new" style="display:inline-block;text-decoration:none;padding:10px 20px;border-radius:8px;">Submit First POD</a>
+    </div>
+  {% endif %}
+</div>
+
+<script>
+function applyFilter() {
+  const date = document.getElementById("dateFilter").value;
+  const url = date ? `/dashboard?date=${date}` : '/dashboard';
+  window.location.href = url;
+}
+
+document.getElementById("dateFilter").addEventListener("keydown", e => {
+  if (e.key === "Enter") applyFilter();
+});
+
+// Live search filter
+document.getElementById("searchFilter").addEventListener("input", function() {
+  const q = this.value.toLowerCase().trim();
+  document.querySelectorAll(".pod-card").forEach(card => {
+    const searchData = card.getAttribute("data-search") || "";
+    card.style.display = (!q || searchData.includes(q)) ? "" : "none";
+  });
+  // Hide empty day groups
+  document.querySelectorAll(".day-group").forEach(group => {
+    const visible = group.querySelectorAll(".pod-card:not([style*='none'])").length;
+    group.style.display = visible > 0 ? "" : "none";
+  });
+});
+
+// CSV Export
+function exportCSV() {
+  const headers = ["ID","Date","Time","Consignment Ref","CMR","Vehicle Reg","Driver Name","Driver Licence","Collection","Delivery","Goods","Weight (kg)","Quantity","Customer","Company","Status","Notes"];
+  const rows = [];
+  document.querySelectorAll(".pod-card").forEach(card => {
+    // We'll fetch from API for full data
+  });
+
+  fetch("/api/pods")
+    .then(r => r.json())
+    .then(data => {
+      const csv = [headers.join(",")];
+      data.forEach(p => {
+        const row = [
+          p.id, p.delivery_date, p.delivery_time,
+          `"${p.consignment_ref || ''}"`,
+          `"${p.cmr_number || ''}"`,
+          p.vehicle_reg, `"${p.driver_name}"`,
+          p.driver_licence,
+          `"${(p.collection_address||'').replace(/"/g,'""')}"`,
+          `"${(p.delivery_address||'').replace(/"/g,'""')}"`,
+          `"${(p.goods_description||'').replace(/"/g,'""')}"`,
+          p.weight_kg || '', p.quantity || '',
+          `"${p.customer_name}"`, `"${p.customer_company||''}"`,
+          p.status, `"${(p.notes||'').replace(/"/g,'""')}"`
+        ];
+        csv.push(row.join(","));
+      });
+      const blob = new Blob([csv.join("\n")], { type: "text/csv" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `epod_export_${new Date().toISOString().split('T')[0]}.csv`;
+      a.click();
+    });
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,898 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>ePOD – Electronic Proof of Delivery</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #f0f2f5;
+    color: #1a1a2e;
+    min-height: 100vh;
+  }
+  header {
+    background: #313536;
+    color: white;
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  header .logo { font-size: 17px; font-weight: 700; letter-spacing: 0.3px; color: #EBE2C6; }
+  header .sub  { font-size: 12px; color: rgba(235,226,198,0.65); margin-top: 2px; }
+  header .badge {
+    margin-left: auto;
+    background: #C59C42;
+    color: #313536;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 20px;
+    letter-spacing: 0.5px;
+  }
+
+  .container { max-width: 680px; margin: 0 auto; padding: 20px 16px 40px; }
+
+  .section {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 16px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  }
+  .section-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 16px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #f0f0f0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .section-title .icon { font-size: 16px; }
+  .compliance-tag {
+    margin-left: auto;
+    font-size: 9px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .tag-dvla { background: #dbeafe; color: #1d4ed8; }
+  .tag-hmrc { background: #dcfce7; color: #166534; }
+  .tag-both { background: #fef3c7; color: #92400e; }
+
+  .field { margin-bottom: 14px; }
+  .field:last-child { margin-bottom: 0; }
+  label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: #444;
+    margin-bottom: 5px;
+  }
+  label .req { color: #ef4444; margin-left: 2px; }
+  input, textarea, select {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1.5px solid #e5e7eb;
+    border-radius: 8px;
+    font-size: 15px;
+    color: #1a1a2e;
+    transition: border-color 0.15s;
+    background: white;
+  }
+  input:focus, textarea:focus, select:focus {
+    outline: none;
+    border-color: #C59C42;
+  }
+  input.error, textarea.error { border-color: #ef4444; }
+  textarea { resize: vertical; min-height: 70px; }
+
+  .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  /* Signature pad */
+  .sig-box {
+    border: 2px dashed #d1d5db;
+    border-radius: 10px;
+    background: #fafafa;
+    position: relative;
+    overflow: hidden;
+    touch-action: none;
+  }
+  .sig-box canvas { display: block; width: 100%; height: 150px; cursor: crosshair; }
+  .sig-label {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #bbb;
+    font-size: 13px;
+    pointer-events: none;
+    text-align: center;
+    transition: opacity 0.2s;
+  }
+  .sig-label.hidden { opacity: 0; }
+  .sig-controls {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 6px;
+  }
+  .btn-clear {
+    font-size: 12px;
+    color: #6b7280;
+    background: none;
+    border: 1px solid #e5e7eb;
+    padding: 4px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  .btn-clear:hover { background: #f9fafb; }
+
+  .sig-signed { border-color: #C59C42; border-style: solid; }
+
+  /* Status radio */
+  .status-group { display: flex; gap: 10px; }
+  .status-opt {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 10px;
+    border: 2px solid #e5e7eb;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    transition: all 0.15s;
+  }
+  .status-opt input { display: none; }
+  .status-opt.delivered { color: #166534; }
+  .status-opt.failed    { color: #991b1b; }
+  .status-opt.active-delivered { border-color: #22c55e; background: #f0fdf4; }
+  .status-opt.active-failed    { border-color: #ef4444; background: #fef2f2; }
+
+  /* Quick-select chips */
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+  .chip {
+    padding: 6px 12px;
+    border: 1.5px solid #e5e7eb;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    background: white;
+    color: #444;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .chip:hover { border-color: #C59C42; background: #fefbf3; color: #92400e; }
+  .chip.active { border-color: #C59C42; background: #C59C42; color: white; }
+
+  /* Address preset dropdown */
+  .addr-preset-bar {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+    align-items: center;
+  }
+  .addr-preset-bar select {
+    flex: 1;
+    font-size: 13px;
+    padding: 7px 10px;
+    border: 1.5px solid #e5e7eb;
+    border-radius: 8px;
+    background: #f9fafb;
+    color: #555;
+  }
+
+  /* Submit */
+  .btn-submit {
+    width: 100%;
+    padding: 16px;
+    background: #313536;
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 8px;
+  }
+  .btn-submit:hover { background: #454a47; }
+  .btn-submit:disabled { background: #9ca3af; cursor: not-allowed; }
+
+  /* Success */
+  .success-screen {
+    display: none;
+    text-align: center;
+    padding: 50px 20px;
+  }
+  .success-screen .tick {
+    font-size: 60px;
+    margin-bottom: 16px;
+  }
+  .success-screen h2 { font-size: 24px; margin-bottom: 8px; color: #166534; }
+  .success-screen p  { color: #6b7280; margin-bottom: 20px; }
+  .btn-new {
+    display: inline-block;
+    padding: 12px 28px;
+    background: #313536;
+    color: white;
+    border-radius: 10px;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    border: none;
+    font-size: 15px;
+    margin: 5px;
+  }
+  .btn-dash {
+    display: inline-block;
+    padding: 12px 28px;
+    background: white;
+    color: #313536;
+    border-radius: 10px;
+    font-weight: 600;
+    text-decoration: none;
+    border: 2px solid #313536;
+    font-size: 15px;
+    margin: 5px;
+  }
+
+  .error-msg { color: #ef4444; font-size: 12px; margin-top: 4px; display: none; }
+  .toast {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    background: #ef4444; color: white;
+    padding: 12px 24px; border-radius: 10px; font-weight: 600;
+    z-index: 999; display: none; font-size: 14px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <?xml version="1.0" encoding="utf-8"?>
+<!-- Generator: Adobe Illustrator 27.0.0, SVG Export Plug-In . SVG Version: 6.00 Build 0)  -->
+<svg version="1.1" height="46" style="display:block;flex-shrink:0" id="图层_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
+	 viewBox="155 330 370 340" xml:space="preserve">
+<style type="text/css">
+	.st0{fill:#313536;}
+	.st1{fill:#C59C42;}
+	.st2{fill:#EBE2C6;}
+</style>
+<path class="st1" d="M387.4,487.3c-4.3,14-0.9,26,7.6,37.1c-8.4-4.4-15.1-10.6-20.1-18.6c-4.9-7.9-7.1-16.7-8.5-25.8
+	c-5.8,16.9-1.5,32.8,5.2,48.4c-8-6-14.2-13.2-18.3-22.2c-4.1-9.1-6.3-18.8-5.9-28.6c0.4-9.7,2.2-19.3,3.3-28.6
+	c-10.5,11.5-16,26-19.4,42c-7.4-18.4-6.8-48.1,22.7-74.3c-5.2-2.2-10-4.2-14.8-6.2c-4.7-2-9.4-4-14.1-6c-8.1,9.5-6,16.5,1.3,28
+	c-12.2-3.6-18.4-11.6-17.5-23c0.8-10,7.6-15.4,17.4-13.5c11.9,2.3,22.4,7.6,31.5,15.5c3.9,3.3,5.9,3.6,9.4-1.7
+	c2.1-3.2,3.5-6.8,5.6-11c7.3,1,15,1.5,22.4,3.2c11,2.6,21.8,6,32.6,9.3c2.2,0.7,4.3,1.9,6.2,3.2c7,4.7,7.8,10.7,2.1,17.4
+	c16.5,7.7,32.3,16.4,47,29c-8.1,1-15.3,1.8-22.4,2.8c-1.5,0.2-2.9,1.2-4.3,1.8c1,1.3,1.8,3.2,3.1,3.9c3.8,1.9,7.9,3.4,12.3,5.2
+	c-0.7,5.8-1.1,11.6-2.1,17.3c-0.2,1.4-1.8,3.2-3.2,3.8c-13,5.1-26.1,10-39.2,15c-2.6,1-4.3,0.2-6.4-1.9c-4.1-4-8.6-7.8-13.5-10.8
+	C401.1,493.9,394.4,490.9,387.4,487.3z M431.6,446.6c-3.5-5.2-9.6-8.8-7.7-17.2c-9.1,0.8-17.3,1.5-25.5,2.2c0,0.5-0.1,0.9-0.1,1.4
+	C407.2,442.3,420.3,441.9,431.6,446.6z"/>
+<path class="st1" d="M203.1,501.3c6.3-19.1,12.4-37.6,18.4-56c2-6.2,4-12.4,6.2-18.5c0.7-1.9,1.8-4.1,3.4-5.3
+	c12.6-9.3,25.3-18.4,38.6-28c-1.2,9.9-2.3,19.2-3.3,28.5c-0.2,1.7-0.5,3.3-0.5,5c0.2,10.9-4.2,19.8-11,28
+	c-12.7,15.2-27.6,28-43.2,39.9C208.9,497,206.3,498.9,203.1,501.3z"/>
+<path class="st1" d="M222.1,511.7c-1.7,10.7-3.6,20.2-4.4,29.7c-0.7,7.7-4.4,13.2-9.3,18.7c-16.7,18.8-35.4,35.6-55.2,52.7
+	c5.3-14.2,10.1-27.4,15-40.6c4.8-13,9.6-25.9,14.2-38.9c1.3-3.8,3.5-6,7.2-7.5C200.2,521.5,210.7,516.7,222.1,511.7z"/>
+<path class="st1" d="M379.1,385.7c-12.1-9.4-26.2-14.3-40.7-18.3c-1.8-0.5-4-0.7-5.8-0.2c-7.1,1.6-14.3,3.3-21.3,5.5
+	c-2.8,0.9-5.8,2.7-7.6,5c-8.2,10.1-16,20.5-24,30.7c-0.3,0.3-0.8,0.5-1.3,0.9c0.3-5.7,0.5-11.1,0.8-16.6c0.1-1.6,0.5-3.3,1.2-4.8
+	c4.5-9.3,9-18.6,13.8-27.8c0.9-1.8,2.5-3.6,4.3-4.6c11-5.9,22.1-11.7,33.2-17.3c1.3-0.6,3.6-0.4,4.8,0.4c8.9,5.9,17.6,12,26.3,18.1
+	c1.3,0.9,2.4,2.3,3.2,3.7c4.6,8.1,9,16.3,13.5,24.4C379.5,385.2,379.3,385.4,379.1,385.7z"/>
+<path class="st1" d="M336.1,640.1c-12.5-4.5-25-9-37.5-13.5c-9.2-3.3-18.5-6.6-27.7-10.1c-1.9-0.7-3.7-2.1-5.1-3.7
+	c-4-4.7-8-9.4-11.5-14.5c-2.5-3.6-5.6-5.8-9.7-7.2c-7.7-2.6-15.3-5.5-23.5-8.5c1.1-1,1.8-1.7,2.6-2.3c6.6-4.3,13.2-8.5,19.7-12.8
+	c1.9-1.3,3.4-1.4,5.4-0.1c5,3.2,10.3,6.1,15.4,9.3c1.8,1.1,3.2,2.9,4.5,4.6c5,6.3,10.2,12.4,14.7,18.9c4.9,7,11.2,12.1,18.4,16.5
+	c10.4,6.3,20.5,13.1,30.7,19.6c1.4,0.9,2.7,1.8,4.1,2.8C336.4,639.5,336.2,639.8,336.1,640.1z"/>
+<path class="st1" d="M352.2,602.4c-0.6-2-1.3-4.1-1.8-6.1c-4.2-16.2-14.8-28-26.2-39.4c-5.4-5.4-10.7-11-15.7-16.8
+	c-9.3-10.9-14-23.4-11.6-37.9c1.4-8.3,3-16.6,4.5-24.9c0.5,0,0.9,0,1.4,0.1c0.4,3,0.9,5.9,1.2,8.9c1.8,15.7,9,28.7,19.3,40.4
+	c5,5.6,10.1,11.1,15.2,16.6c11.1,12,16.4,26.1,15.5,42.4c-0.3,5.6-0.7,11.2-1.1,16.7C352.7,602.3,352.4,602.3,352.2,602.4z"/>
+<path class="st1" d="M289.9,547.8c-10.5-7.3-21.1-14.5-31.5-22.1c-1.8-1.3-2.9-4.4-3.1-6.8c-1.5-18.9,3.2-36,15.7-50.6
+	c4.6-5.4,9.3-10.6,14.6-15.8c-13.1,32.4-14.2,64,5.8,94.4C290.9,547.3,290.4,547.5,289.9,547.8z"/>
+<path class="st1" d="M459,544.1c-3.6-6.8-9.1-10.6-15.7-13c-5.4-2-9.2-5.8-12.4-10.8c11.2-10.1,24.8-15.7,38.7-20.8
+	C479,510.4,475,527.9,459,544.1z"/>
+<path class="st1" d="M377,358.6c8.8,3,16.9,5.3,24.6,8.7c11.6,5.1,18.1,18.9,15.4,32.2c-4.1-1.1-8.3-2-12.3-3.4
+	c-1.4-0.5-2.6-2-3.5-3.3c-3.9-5.6-7.4-11.5-11.4-17C385.9,370.3,381.7,364.9,377,358.6z"/>
+<path class="st1" d="M484.4,471.9c-2,8.5-3.8,16.2-5.7,24.5c-2.2-1.2-3.7-2.1-5.6-3.2C476.1,486,472.8,475.9,484.4,471.9z"/>
+
+
+</svg>
+  <div>
+    <div class="logo">ePOD</div>
+    <div class="sub">Electronic Proof of Delivery</div>
+  </div>
+  <span class="badge">DVLA · HMRC</span>
+</header>
+
+<div class="container">
+  <div id="formWrapper">
+    <form id="podForm" novalidate>
+
+      <!-- Delivery Info -->
+      <div class="section">
+        <div class="section-title">
+          <span class="icon">📋</span> Delivery Information
+          <span class="compliance-tag tag-both">DVLA + HMRC</span>
+        </div>
+        <div class="row-2">
+          <div class="field">
+            <label>Date <span class="req">*</span></label>
+            <input type="date" id="delivery_date" name="delivery_date" required>
+          </div>
+          <div class="field">
+            <label>Time <span class="req">*</span></label>
+            <input type="time" id="delivery_time" name="delivery_time" required>
+          </div>
+        </div>
+        <div class="field">
+          <label>Consignment / Job Ref <span class="req">*</span></label>
+          <input type="text" id="consignment_ref" placeholder="e.g. JOB-2024-00123" required>
+        </div>
+        <div class="field">
+          <label>CMR Number</label>
+          <input type="text" id="cmr_number" placeholder="International freight CMR (if applicable)">
+        </div>
+      </div>
+
+      <!-- Vehicle & Driver (DVLA) -->
+      <div class="section">
+        <div class="section-title">
+          <span class="icon">🚛</span> Vehicle & Driver
+          <span class="compliance-tag tag-dvla">DVLA</span>
+        </div>
+        <div class="row-2">
+          <div class="field">
+            <label>Vehicle Registration <span class="req">*</span></label>
+            <select id="vehicle_reg" required>
+              <option value="">Select registration</option>
+              <option value="BV19LFN">BV19LFN</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Vehicle Type</label>
+            <select id="vehicle_type">
+              <option value="">Select type</option>
+              <option>HGV Artic</option>
+              <option>HGV Rigid</option>
+              <option>LGV / 7.5t</option>
+              <option>Sprinter Van</option>
+              <option>Other</option>
+            </select>
+          </div>
+        </div>
+        <div class="row-2">
+          <div class="field">
+            <label>Driver <span class="req">*</span></label>
+            <select id="driver_name" required>
+              <option value="">Loading...</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Trailer Number</label>
+            <input type="text" id="trailer_number" placeholder="e.g. B6367397 GB" style="text-transform:uppercase">
+          </div>
+        </div>
+        <div class="row-2">
+          <div class="field">
+            <label>Seal Number <span style="font-size:11px;color:#888">(CMR Box 13)</span></label>
+            <input type="text" id="seal_number" placeholder="e.g. 6679099">
+          </div>
+          <div class="field">
+            <label style="display:flex;align-items:center;gap:6px">Carrier</label>
+            <div style="padding:10px 12px;background:#f0f0f0;border-radius:8px;font-size:14px;color:#444;border:1px solid #ddd">Lionrock Haulage Limited</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Collection & Delivery (HMRC) -->
+      <div class="section">
+        <div class="section-title">
+          <span class="icon">📍</span> Addresses
+          <span class="compliance-tag tag-hmrc">HMRC</span>
+        </div>
+        <div class="field">
+          <label>Collection Address <span class="req">*</span></label>
+          <div class="addr-preset-bar" id="collectionPresetBar" style="display:none">
+            <select id="collectionPreset" onchange="applyCollectionPreset(this.value)">
+              <option value="">⚡ Quick-select saved address...</option>
+            </select>
+          </div>
+          <textarea id="collection_address" placeholder="Full collection address including postcode" required></textarea>
+        </div>
+        <div class="field">
+          <label>Delivery Address <span class="req">*</span></label>
+          <input list="deliveryList" id="delivery_address_input" placeholder="Start typing to search past addresses..." autocomplete="off"
+            style="width:100%;padding:10px 12px;border:1.5px solid #e5e7eb;border-radius:8px;font-size:15px;color:#1a1a2e;background:white;margin-bottom:6px"
+            oninput="syncDeliveryAddress(this.value)" onchange="syncDeliveryAddress(this.value)">
+          <datalist id="deliveryList"></datalist>
+          <textarea id="delivery_address" placeholder="Full delivery address including postcode" required style="margin-top:0"></textarea>
+          <div style="font-size:11px;color:#999;margin-top:4px">Type above to search history, or edit the box directly</div>
+        </div>
+      </div>
+
+      <!-- Goods (HMRC) -->
+      <div class="section">
+        <div class="section-title">
+          <span class="icon">📦</span> Goods Details
+          <span class="compliance-tag tag-hmrc">HMRC</span>
+        </div>
+        <div class="field">
+          <label>Goods Description <span class="req">*</span></label>
+          <div class="chips" id="goodsChips"></div>
+          <textarea id="goods_description" placeholder="Description of goods carried" required style="margin-top:8px"></textarea>
+        </div>
+        <div class="row-2">
+          <div class="field">
+            <label>Weight (kg)</label>
+            <input type="number" id="weight_kg" placeholder="e.g. 5400" step="0.1" min="0">
+          </div>
+          <div class="field">
+            <label>Quantity / Pallets</label>
+            <input type="text" id="quantity" placeholder="e.g. 22 pallets">
+          </div>
+        </div>
+      </div>
+
+      <!-- Customer -->
+      <div class="section">
+        <div class="section-title">
+          <span class="icon">🏢</span> Customer / Recipient
+        </div>
+        <div class="row-2">
+          <div class="field">
+            <label>Recipient Name <span class="req">*</span></label>
+            <input type="text" id="customer_name" placeholder="Full name" required>
+          </div>
+          <div class="field">
+            <label>Company</label>
+            <input type="text" id="customer_company" placeholder="Company name">
+          </div>
+        </div>
+      </div>
+
+      <!-- Delivery Status -->
+      <div class="section">
+        <div class="section-title">
+          <span class="icon">✅</span> Delivery Status
+        </div>
+        <div class="status-group">
+          <label class="status-opt delivered active-delivered" id="opt-delivered">
+            <input type="radio" name="status" value="delivered" checked> ✅ Delivered
+          </label>
+          <label class="status-opt failed" id="opt-failed">
+            <input type="radio" name="status" value="failed"> ❌ Failed / Refused
+          </label>
+        </div>
+        <div class="field" style="margin-top:12px">
+          <label>Notes</label>
+          <textarea id="notes" placeholder="Any additional notes (e.g. left with neighbour, damaged on arrival)"></textarea>
+        </div>
+      </div>
+
+      <!-- Driver Signature -->
+      <div class="section">
+        <div class="section-title">
+          <span class="icon">✍️</span> Driver Signature
+          <span class="compliance-tag tag-dvla">DVLA</span>
+        </div>
+        <div class="sig-box" id="driverSigBox">
+          <canvas id="driverCanvas"></canvas>
+          <div class="sig-label" id="driverSigLabel">Sign here with finger or stylus</div>
+        </div>
+        <div class="sig-controls">
+          <button type="button" class="btn-clear" onclick="clearSig('driver')">Clear</button>
+        </div>
+      </div>
+
+      <!-- Recipient Signature -->
+      <div class="section">
+        <div class="section-title">
+          <span class="icon">✍️</span> Recipient Signature
+          <span class="compliance-tag tag-hmrc">HMRC</span>
+        </div>
+        <div class="sig-box" id="recipientSigBox">
+          <canvas id="recipientCanvas"></canvas>
+          <div class="sig-label" id="recipientSigLabel">Customer signs here</div>
+        </div>
+        <div class="sig-controls">
+          <button type="button" class="btn-clear" onclick="clearSig('recipient')">Clear</button>
+        </div>
+      </div>
+
+      <!-- Supporting Document Photo -->
+      <div class="section">
+        <div class="section-title">
+          <span class="icon">📎</span> Supporting Document <span style="font-size:13px;font-weight:400;color:#888">(optional)</span>
+        </div>
+        <p style="font-size:13px;color:#666;margin:0 0 12px">Take a photo of a CMR, delivery note, or any supporting document.</p>
+        <div id="docPhotoPreview" style="display:none;margin-bottom:12px">
+          <img id="docPhotoImg" style="max-width:100%;border-radius:8px;border:2px solid #C59C42" alt="Supporting document">
+          <button type="button" onclick="clearDocPhoto()" class="btn-clear" style="margin-top:8px">Remove Photo</button>
+        </div>
+        <label class="btn-submit" style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;background:#555;font-size:15px;padding:12px 20px" id="docPhotoLabel">
+          <span>📷</span> Capture / Upload
+          <input type="file" id="docPhotoInput" accept="image/*" capture="environment" style="display:none" onchange="handleDocPhoto(this)">
+        </label>
+      </div>
+
+      <button type="submit" class="btn-submit" id="submitBtn">
+        <span>📤</span> Submit ePOD
+      </button>
+
+    </form>
+  </div>
+
+  <!-- Success Screen -->
+  <div class="success-screen" id="successScreen">
+    <div class="tick">✅</div>
+    <h2>POD Submitted</h2>
+    <p id="successMsg">Proof of Delivery recorded successfully.</p>
+    <br>
+    <button class="btn-new" onclick="resetForm()">New Delivery</button>
+    <a class="btn-dash" href="/dashboard">View Dashboard</a>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ─── Date/Time Defaults ─────────────────────────────────────────────────────
+const now = new Date();
+document.getElementById("delivery_date").value = now.toISOString().split("T")[0];
+document.getElementById("delivery_time").value = now.toTimeString().slice(0,5);
+
+// ─── Load Config from Server ────────────────────────────────────────────────
+let _vehicleMap = {};
+
+async function loadConfig() {
+  try {
+    const res = await fetch("/api/config");
+    const cfg = await res.json();
+
+    // Populate driver dropdown
+    const driverSel = document.getElementById("driver_name");
+    driverSel.innerHTML = "";
+    cfg.drivers.forEach((d, i) => {
+      const opt = document.createElement("option");
+      opt.value = i === 0 ? "" : d;
+      opt.textContent = d;
+      driverSel.appendChild(opt);
+    });
+
+    // Store vehicle map for auto-fill
+    _vehicleMap = cfg.vehicles || {};
+
+    // Populate collection address presets
+    const presetSel = document.getElementById("collectionPreset");
+    const presetBar = document.getElementById("collectionPresetBar");
+    const realAddresses = (cfg.collection_addresses || []).filter(a => a.address);
+    if (realAddresses.length > 0) {
+      presetBar.style.display = "flex";
+      realAddresses.forEach(a => {
+        const opt = document.createElement("option");
+        opt.value = a.address;
+        opt.textContent = a.label;
+        presetSel.appendChild(opt);
+      });
+    }
+
+    // Populate goods description chips
+    const chipsEl = document.getElementById("goodsChips");
+    (cfg.goods_presets || []).forEach(g => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "chip";
+      btn.textContent = g;
+      btn.onclick = () => selectGoodsChip(btn, g);
+      chipsEl.appendChild(btn);
+    });
+
+  } catch(e) {
+    console.warn("Config load failed", e);
+    // Fallback: restore plain text input for driver
+    const driverSel = document.getElementById("driver_name");
+    driverSel.innerHTML = '<option value="">Enter driver name</option>';
+  }
+}
+
+// Load delivery address history for autocomplete
+async function loadDeliveryHistory() {
+  try {
+    const res = await fetch("/api/autocomplete/delivery");
+    const addresses = await res.json();
+    const dl = document.getElementById("deliveryList");
+    addresses.forEach(addr => {
+      const opt = document.createElement("option");
+      opt.value = addr;
+      dl.appendChild(opt);
+    });
+  } catch(e) { /* non-critical */ }
+}
+
+loadConfig();
+loadDeliveryHistory();
+
+// ─── Vehicle Type Auto-fill ──────────────────────────────────────────────────
+document.getElementById("vehicle_reg").addEventListener("change", function() {
+  const type = _vehicleMap[this.value];
+  if (type) {
+    const typeEl = document.getElementById("vehicle_type");
+    for (let i = 0; i < typeEl.options.length; i++) {
+      if (typeEl.options[i].text === type) {
+        typeEl.selectedIndex = i;
+        break;
+      }
+    }
+  }
+});
+
+// ─── Collection Address Preset ───────────────────────────────────────────────
+function applyCollectionPreset(addr) {
+  if (addr) document.getElementById("collection_address").value = addr;
+}
+
+// ─── Goods Description Chips ─────────────────────────────────────────────────
+function selectGoodsChip(btn, text) {
+  document.querySelectorAll("#goodsChips .chip").forEach(c => c.classList.remove("active"));
+  btn.classList.add("active");
+  document.getElementById("goods_description").value = text;
+}
+
+// ─── Delivery Address Sync ───────────────────────────────────────────────────
+function syncDeliveryAddress(val) {
+  document.getElementById("delivery_address").value = val;
+}
+
+// ─── Status Toggle ──────────────────────────────────────────────────────────
+document.querySelectorAll("input[name=status]").forEach(r => {
+  r.addEventListener("change", () => {
+    document.getElementById("opt-delivered").className = "status-opt delivered" + (r.value==="delivered" ? " active-delivered" : "");
+    document.getElementById("opt-failed").className    = "status-opt failed"    + (r.value==="failed"    ? " active-failed"    : "");
+  });
+});
+
+// ─── Signature Pads ─────────────────────────────────────────────────────────
+const pads = {};
+
+function initPad(name) {
+  const canvas = document.getElementById(name + "Canvas");
+  const box    = document.getElementById(name + "SigBox");
+  const label  = document.getElementById(name + "SigLabel");
+  const dpr    = window.devicePixelRatio || 1;
+
+  function resize() {
+    const w = box.offsetWidth;
+    const h = 150;
+    canvas.width  = w * dpr;
+    canvas.height = h * dpr;
+    canvas.style.width  = w + "px";
+    canvas.style.height = h + "px";
+    const ctx = canvas.getContext("2d");
+    ctx.scale(dpr, dpr);
+  }
+  resize();
+
+  const ctx = canvas.getContext("2d");
+  ctx.strokeStyle = "#313536";
+  ctx.lineWidth   = 2;
+  ctx.lineCap     = "round";
+  ctx.lineJoin    = "round";
+
+  let drawing = false;
+  let hasMark = false;
+
+  function pt(e) {
+    const r = canvas.getBoundingClientRect();
+    if (e.touches) {
+      return { x: e.touches[0].clientX - r.left, y: e.touches[0].clientY - r.top };
+    }
+    return { x: e.clientX - r.left, y: e.clientY - r.top };
+  }
+
+  function start(e) {
+    e.preventDefault();
+    drawing = true;
+    const p = pt(e);
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.y);
+    if (!hasMark) {
+      hasMark = true;
+      label.classList.add("hidden");
+      box.classList.add("sig-signed");
+    }
+  }
+  function move(e) {
+    e.preventDefault();
+    if (!drawing) return;
+    const p = pt(e);
+    ctx.lineTo(p.x, p.y);
+    ctx.stroke();
+  }
+  function end(e) { e.preventDefault(); drawing = false; }
+
+  canvas.addEventListener("mousedown",  start);
+  canvas.addEventListener("mousemove",  move);
+  canvas.addEventListener("mouseup",    end);
+  canvas.addEventListener("mouseleave", end);
+  canvas.addEventListener("touchstart", start, { passive: false });
+  canvas.addEventListener("touchmove",  move,  { passive: false });
+  canvas.addEventListener("touchend",   end);
+
+  pads[name] = {
+    canvas, ctx, label, box, dpr,
+    isEmpty: () => !hasMark,
+    clear: () => {
+      ctx.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr);
+      hasMark = false;
+      label.classList.remove("hidden");
+      box.classList.remove("sig-signed");
+    },
+    toDataURL: () => canvas.toDataURL("image/png")
+  };
+}
+
+initPad("driver");
+initPad("recipient");
+
+function clearSig(name) { pads[name].clear(); }
+
+let _docPhotoDataURL = null;
+function handleDocPhoto(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    _docPhotoDataURL = e.target.result;
+    document.getElementById("docPhotoImg").src = _docPhotoDataURL;
+    document.getElementById("docPhotoPreview").style.display = "block";
+    document.getElementById("docPhotoLabel").style.display = "none";
+  };
+  reader.readAsDataURL(file);
+}
+function clearDocPhoto() {
+  _docPhotoDataURL = null;
+  document.getElementById("docPhotoInput").value = "";
+  document.getElementById("docPhotoPreview").style.display = "none";
+  document.getElementById("docPhotoLabel").style.display = "inline-flex";
+}
+
+// ─── Form Submit ─────────────────────────────────────────────────────────────
+document.getElementById("podForm").addEventListener("submit", async function(e) {
+  e.preventDefault();
+
+  const required = [
+    ["delivery_date",       "Delivery date required"],
+    ["delivery_time",       "Delivery time required"],
+    ["consignment_ref",     "Consignment reference required"],
+    ["vehicle_reg",         "Vehicle registration required"],
+    ["driver_name",         "Driver name required"],
+    ["collection_address",  "Collection address required"],
+    ["delivery_address",    "Delivery address required"],
+    ["goods_description",   "Goods description required"],
+    ["customer_name",       "Recipient name required"],
+  ];
+
+  let valid = true;
+  for (const [id, msg] of required) {
+    const el = document.getElementById(id);
+    if (!el.value.trim()) {
+      el.classList.add("error");
+      showToast(msg);
+      el.focus();
+      valid = false;
+      break;
+    } else {
+      el.classList.remove("error");
+    }
+  }
+  if (!valid) return;
+
+  if (pads.driver.isEmpty()) {
+    showToast("Driver signature is required");
+    return;
+  }
+  if (pads.recipient.isEmpty()) {
+    showToast("Recipient signature is required");
+    return;
+  }
+
+  const btn = document.getElementById("submitBtn");
+  btn.disabled = true;
+  btn.textContent = "Submitting...";
+
+  const payload = {
+    delivery_date:      document.getElementById("delivery_date").value,
+    delivery_time:      document.getElementById("delivery_time").value,
+    consignment_ref:    document.getElementById("consignment_ref").value.trim(),
+    cmr_number:         document.getElementById("cmr_number").value.trim(),
+    vehicle_reg:        document.getElementById("vehicle_reg").value,
+    vehicle_type:       document.getElementById("vehicle_type").value,
+    driver_name:        document.getElementById("driver_name").value.trim(),
+    trailer_number:     document.getElementById("trailer_number").value.trim().toUpperCase(),
+    seal_number:        document.getElementById("seal_number").value.trim(),
+    carrier:            "Lionrock Haulage Limited",
+    collection_address: document.getElementById("collection_address").value.trim(),
+    delivery_address:   document.getElementById("delivery_address").value.trim(),
+    goods_description:  document.getElementById("goods_description").value.trim(),
+    weight_kg:          parseFloat(document.getElementById("weight_kg").value) || null,
+    quantity:           document.getElementById("quantity").value.trim(),
+    customer_name:      document.getElementById("customer_name").value.trim(),
+    customer_company:   document.getElementById("customer_company").value.trim(),
+    driver_signature:   pads.driver.toDataURL(),
+    recipient_signature: pads.recipient.toDataURL(),
+    status:             document.querySelector("input[name=status]:checked").value,
+    notes:              document.getElementById("notes").value.trim(),
+    supporting_doc_image: _docPhotoDataURL || null,
+  };
+
+  try {
+    const res = await fetch("/submit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (data.success) {
+      document.getElementById("successMsg").textContent =
+        `POD #${data.id} recorded for ${payload.customer_name} — ${payload.consignment_ref}`;
+      document.getElementById("formWrapper").style.display = "none";
+      document.getElementById("successScreen").style.display = "block";
+      window.scrollTo(0, 0);
+    } else {
+      showToast(data.error || "Submission failed");
+      btn.disabled = false;
+      btn.innerHTML = "📤 Submit ePOD";
+    }
+  } catch (err) {
+    showToast("Network error — check connection");
+    btn.disabled = false;
+    btn.innerHTML = "📤 Submit ePOD";
+  }
+});
+
+function resetForm() {
+  document.getElementById("podForm").reset();
+  const now = new Date();
+  document.getElementById("delivery_date").value = now.toISOString().split("T")[0];
+  document.getElementById("delivery_time").value = now.toTimeString().slice(0,5);
+  // Clear delivery address search input
+  document.getElementById("delivery_address_input").value = "";
+  document.getElementById("delivery_address").value = "";
+  // Clear collection preset selection
+  document.getElementById("collectionPreset").selectedIndex = 0;
+  // Clear goods chips
+  document.querySelectorAll("#goodsChips .chip").forEach(c => c.classList.remove("active"));
+  pads.driver.clear();
+  pads.recipient.clear();
+  document.getElementById("opt-delivered").className = "status-opt delivered active-delivered";
+  document.getElementById("opt-failed").className    = "status-opt failed";
+  document.getElementById("formWrapper").style.display = "";
+  document.getElementById("successScreen").style.display = "none";
+  document.getElementById("submitBtn").disabled = false;
+  document.getElementById("submitBtn").innerHTML = "📤 Submit ePOD";
+  clearDocPhoto();
+  window.scrollTo(0, 0);
+}
+
+function showToast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.style.display = "block";
+  setTimeout(() => t.style.display = "none", 3000);
+}
+</script>
+</body>
+</html>
