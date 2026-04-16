@@ -265,8 +265,10 @@ def api_pod_detail(pod_id):
 
 # ─── Run ───────────────────────────────────────────────────────────────────────
 
+# Initialise DB on startup (runs under both Gunicorn and direct python)
+init_db()
+
 if __name__ == "__main__":
-    init_db()
     print("\n  ePOD System running at http://localhost:8080")
     print("  Dashboard:  http://localhost:8080/dashboard\n")
     app.run(debug=True, port=8080)
