@@ -261,7 +261,60 @@
     z-index: 999; display: none; font-size: 14px;
     box-shadow: 0 4px 12px rgba(0,0,0,0.2);
   }
+
+  /* OCR overlay */
+  .ocr-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.55);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .ocr-overlay.active { display: flex; }
+  .ocr-card {
+    background: white;
+    border-radius: 16px;
+    padding: 24px;
+    max-width: 480px;
+    width: 100%;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+  }
+  .ocr-card h3 { font-size: 16px; font-weight: 700; margin-bottom: 4px; color: #1a1a2e; }
+  .ocr-card .ocr-sub { font-size: 12px; color: #888; margin-bottom: 16px; }
+  .ocr-field { margin-bottom: 12px; }
+  .ocr-field label { font-size: 12px; font-weight: 600; color: #555; display: block; margin-bottom: 4px; }
+  .ocr-field input, .ocr-field textarea {
+    width: 100%; padding: 8px 10px;
+    border: 1.5px solid #e5e7eb; border-radius: 8px;
+    font-size: 14px; color: #1a1a2e; background: #f9fafb;
+  }
+  .ocr-field textarea { min-height: 56px; resize: vertical; }
+  .ocr-empty { color: #bbb; font-style: italic; font-size: 13px; }
+  .ocr-actions { display: flex; gap: 10px; margin-top: 16px; }
+  .ocr-apply {
+    flex: 1; padding: 12px; background: #313536; color: white;
+    border: none; border-radius: 10px; font-weight: 700; font-size: 15px; cursor: pointer;
+  }
+  .ocr-apply:hover { background: #454a47; }
+  .ocr-skip {
+    padding: 12px 20px; background: white; color: #555;
+    border: 1.5px solid #e5e7eb; border-radius: 10px; font-weight: 600; font-size: 14px; cursor: pointer;
+  }
+  .ocr-loading {
+    text-align: center; padding: 32px 0;
+  }
+  .ocr-loading .spinner {
+    width: 40px; height: 40px; border: 4px solid #f0f0f0;
+    border-top-color: #C59C42; border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto 12px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .ocr-loading p { color: #666; font-size: 14px; }
 </style>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 </head>
 <body>
 
@@ -376,9 +429,8 @@
         <div class="row-2">
           <div class="field">
             <label>Driver <span class="req">*</span></label>
-            <select id="driver_name" required>
-              <option value="">Loading...</option>
-            </select>
+            <input type="text" id="driver_name" placeholder="Auto-fills from vehicle reg" required readonly
+              style="background:#f9fafb;color:#555">
           </div>
           <div class="field">
             <label>Trailer Number</label>
@@ -548,6 +600,50 @@
 
 <div class="toast" id="toast"></div>
 
+<!-- OCR Overlay -->
+<div class="ocr-overlay" id="ocrOverlay">
+  <div class="ocr-card">
+    <!-- Loading state -->
+    <div class="ocr-loading" id="ocrLoading">
+      <div class="spinner"></div>
+      <p>Reading document...</p>
+    </div>
+    <!-- Results state -->
+    <div id="ocrResults" style="display:none">
+      <h3>📄 Document Scanned</h3>
+      <p class="ocr-sub">Check extracted info and tap Apply to fill the form</p>
+      <div class="ocr-field">
+        <label>Collection Address</label>
+        <textarea id="ocrCollection" rows="2"></textarea>
+      </div>
+      <div class="ocr-field">
+        <label>Delivery Address</label>
+        <textarea id="ocrDelivery" rows="2"></textarea>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="ocr-field">
+          <label>Date</label>
+          <input type="date" id="ocrDate">
+        </div>
+        <div class="ocr-field">
+          <label>Time</label>
+          <input type="time" id="ocrTime">
+        </div>
+      </div>
+      <div class="ocr-actions">
+        <button class="ocr-apply" onclick="applyOcr()">✅ Apply to Form</button>
+        <button class="ocr-skip" onclick="closeOcr()">Skip</button>
+      </div>
+    </div>
+    <!-- Error state -->
+    <div id="ocrError" style="display:none;text-align:center;padding:16px 0">
+      <div style="font-size:36px;margin-bottom:8px">⚠️</div>
+      <p id="ocrErrorMsg" style="color:#666;font-size:14px;margin-bottom:16px"></p>
+      <button class="ocr-skip" onclick="closeOcr()">Close</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ─── Date/Time Defaults ─────────────────────────────────────────────────────
 const now = new Date();
@@ -561,16 +657,6 @@ async function loadConfig() {
   try {
     const res = await fetch("/api/config");
     const cfg = await res.json();
-
-    // Populate driver dropdown
-    const driverSel = document.getElementById("driver_name");
-    driverSel.innerHTML = "";
-    cfg.drivers.forEach((d, i) => {
-      const opt = document.createElement("option");
-      opt.value = i === 0 ? "" : d;
-      opt.textContent = d;
-      driverSel.appendChild(opt);
-    });
 
     // Store vehicle map for auto-fill
     _vehicleMap = cfg.vehicles || {};
@@ -602,9 +688,11 @@ async function loadConfig() {
 
   } catch(e) {
     console.warn("Config load failed", e);
-    // Fallback: restore plain text input for driver
-    const driverSel = document.getElementById("driver_name");
-    driverSel.innerHTML = '<option value="">Enter driver name</option>';
+    const driverEl = document.getElementById("driver_name");
+    driverEl.removeAttribute("readonly");
+    driverEl.placeholder = "Enter driver name";
+    driverEl.style.background = "";
+    driverEl.style.color = "";
   }
 }
 
@@ -625,17 +713,19 @@ async function loadDeliveryHistory() {
 loadConfig();
 loadDeliveryHistory();
 
-// ─── Vehicle Type Auto-fill ──────────────────────────────────────────────────
+// ─── Vehicle Reg → Auto-fill Type + Driver ──────────────────────────────────
 document.getElementById("vehicle_reg").addEventListener("change", function() {
-  const type = _vehicleMap[this.value];
-  if (type) {
+  const v = _vehicleMap[this.value];
+  if (v) {
+    // Auto-fill vehicle type
     const typeEl = document.getElementById("vehicle_type");
     for (let i = 0; i < typeEl.options.length; i++) {
-      if (typeEl.options[i].text === type) {
-        typeEl.selectedIndex = i;
-        break;
-      }
+      if (typeEl.options[i].text === v.type) { typeEl.selectedIndex = i; break; }
     }
+    // Auto-fill driver name
+    document.getElementById("driver_name").value = v.driver || "";
+  } else {
+    document.getElementById("driver_name").value = "";
   }
 });
 
@@ -759,6 +849,8 @@ function handleDocPhoto(input) {
     document.getElementById("docPhotoImg").src = _docPhotoDataURL;
     document.getElementById("docPhotoPreview").style.display = "block";
     document.getElementById("docPhotoLabel").style.display = "none";
+    // Trigger OCR
+    runOcr(_docPhotoDataURL);
   };
   reader.readAsDataURL(file);
 }
@@ -767,6 +859,120 @@ function clearDocPhoto() {
   document.getElementById("docPhotoInput").value = "";
   document.getElementById("docPhotoPreview").style.display = "none";
   document.getElementById("docPhotoLabel").style.display = "inline-flex";
+}
+
+// ─── OCR (Tesseract.js — free, runs in browser) ──────────────────────────────
+let _tesseractReady = false;
+let _tesseractWorker = null;
+
+async function getTesseract() {
+  if (_tesseractWorker) return _tesseractWorker;
+  _tesseractWorker = await Tesseract.createWorker("eng", 1, {
+    workerPath: "https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/worker.min.js",
+    langPath: "https://tessdata.projectnaptha.com/4.0.0",
+    corePath: "https://cdn.jsdelivr.net/npm/tesseract.js-core@5/tesseract-core-simd-lstm.wasm.js",
+    logger: () => {}
+  });
+  return _tesseractWorker;
+}
+
+function parseOcrText(text) {
+  const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
+  const result = { collection_address: "", delivery_address: "", date: "", time: "" };
+
+  // ── Date: DD/MM/YYYY or DD-MM-YYYY or DD.MM.YYYY ──
+  const dateRx = /\b(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})\b/;
+  for (const l of lines) {
+    const m = l.match(dateRx);
+    if (m) {
+      const [, d, mo, y] = m;
+      const yr = y.length === 2 ? "20" + y : y;
+      result.date = `${yr}-${mo.padStart(2,"0")}-${d.padStart(2,"0")}`;
+      break;
+    }
+  }
+
+  // ── Time: HH:MM ──
+  const timeRx = /\b(\d{1,2}):(\d{2})\b/;
+  for (const l of lines) {
+    const m = l.match(timeRx);
+    if (m && parseInt(m[1]) < 24 && parseInt(m[2]) < 60) {
+      result.time = `${m[1].padStart(2,"0")}:${m[2]}`;
+      break;
+    }
+  }
+
+  // ── Addresses: look for section keywords ──
+  const colKw = /consign?or|shipper|sender|collect|from|pickup|pick.up/i;
+  const delKw = /consign?ee|recipient|deliver|destination|to:|drop.?off/i;
+
+  let colStart = -1, delStart = -1;
+  for (let i = 0; i < lines.length; i++) {
+    if (colStart === -1 && colKw.test(lines[i])) colStart = i;
+    if (delStart === -1 && delKw.test(lines[i])) delStart = i;
+  }
+
+  function extractBlock(start) {
+    if (start === -1) return "";
+    const block = [];
+    for (let i = start + 1; i < Math.min(start + 6, lines.length); i++) {
+      const l = lines[i];
+      if (/consign|shipper|sender|collect|deliver|recipient|destination|date|time|weight|goods|description/i.test(l)) break;
+      if (l.length > 3) block.push(l);
+    }
+    return block.join(", ");
+  }
+
+  result.collection_address = extractBlock(colStart);
+  result.delivery_address   = extractBlock(delStart);
+  return result;
+}
+
+async function runOcr(imageDataURL) {
+  document.getElementById("ocrLoading").style.display = "block";
+  document.getElementById("ocrResults").style.display = "none";
+  document.getElementById("ocrError").style.display = "none";
+  document.getElementById("ocrOverlay").classList.add("active");
+
+  try {
+    const worker = await getTesseract();
+    const { data: { text } } = await worker.recognize(imageDataURL);
+    const extracted = parseOcrText(text);
+
+    document.getElementById("ocrLoading").style.display = "none";
+    document.getElementById("ocrCollection").value = extracted.collection_address;
+    document.getElementById("ocrDelivery").value   = extracted.delivery_address;
+    document.getElementById("ocrDate").value        = extracted.date;
+    document.getElementById("ocrTime").value        = extracted.time;
+    document.getElementById("ocrResults").style.display = "block";
+
+  } catch(err) {
+    document.getElementById("ocrLoading").style.display = "none";
+    document.getElementById("ocrErrorMsg").textContent = "Could not read document — fill in manually";
+    document.getElementById("ocrError").style.display = "block";
+  }
+}
+
+function applyOcr() {
+  const col  = document.getElementById("ocrCollection").value.trim();
+  const del  = document.getElementById("ocrDelivery").value.trim();
+  const date = document.getElementById("ocrDate").value;
+  const time = document.getElementById("ocrTime").value;
+
+  if (col)  document.getElementById("collection_address").value = col;
+  if (del) {
+    document.getElementById("delivery_address").value = del;
+    document.getElementById("delivery_address_input").value = del;
+  }
+  if (date) document.getElementById("delivery_date").value = date;
+  if (time) document.getElementById("delivery_time").value = time;
+
+  closeOcr();
+  showToast("✅ Form filled from document", "green");
+}
+
+function closeOcr() {
+  document.getElementById("ocrOverlay").classList.remove("active");
 }
 
 // ─── Form Submit ─────────────────────────────────────────────────────────────
@@ -887,9 +1093,10 @@ function resetForm() {
   window.scrollTo(0, 0);
 }
 
-function showToast(msg) {
+function showToast(msg, color) {
   const t = document.getElementById("toast");
   t.textContent = msg;
+  t.style.background = color === "green" ? "#166534" : "#ef4444";
   t.style.display = "block";
   setTimeout(() => t.style.display = "none", 3000);
 }
