@@ -15,9 +15,19 @@ DB_PATH = os.path.join(os.path.dirname(__file__), "epod.db")
 # ─── Configuration ─────────────────────────────────────────────────────────────
 # Edit these lists to match your fleet and drivers
 
+DRIVERS = [
+    "Chun Yip Chau",
+    "Ka Lok Wong",
+]
+
+TRAILERS = [
+    "4201",
+    # Add more trailer numbers here
+]
+
 VEHICLES = {
-    # "REG": {"type": "HGV Artic", "driver": "Driver Name"}
-    "BV19LFN": {"type": "HGV Artic", "driver": "Luca Chau"},
+    # "REG": {"type": "HGV Artic", "driver": "Driver Name", "trailer": "4201"}
+    "BV19LFN": {"type": "HGV Artic", "driver": "Chun Yip Chau", "trailer": "4201"},
 }
 
 COLLECTION_ADDRESSES = [
@@ -108,6 +118,8 @@ def init_db():
 def api_config():
     """Return driver list, vehicle map, address presets and goods presets for the form."""
     return jsonify({
+        "drivers": DRIVERS,
+        "trailers": TRAILERS,
         "vehicles": VEHICLES,
         "collection_addresses": COLLECTION_ADDRESSES,
         "goods_presets": GOODS_PRESETS,

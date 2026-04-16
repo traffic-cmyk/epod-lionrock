@@ -410,31 +410,26 @@
           <div class="field">
             <label>Vehicle Registration <span class="req">*</span></label>
             <select id="vehicle_reg" required>
-              <option value="">Select registration</option>
-              <option value="BV19LFN">BV19LFN</option>
+              <option value="">Loading...</option>
             </select>
           </div>
           <div class="field">
             <label>Vehicle Type</label>
-            <select id="vehicle_type">
-              <option value="">Select type</option>
-              <option>HGV Artic</option>
-              <option>HGV Rigid</option>
-              <option>LGV / 7.5t</option>
-              <option>Sprinter Van</option>
-              <option>Other</option>
-            </select>
+            <div style="padding:10px 12px;background:#f0f0f0;border-radius:8px;font-size:14px;color:#444;border:1px solid #ddd">HGV Artic</div>
+            <input type="hidden" id="vehicle_type" value="HGV Artic">
           </div>
         </div>
         <div class="row-2">
           <div class="field">
             <label>Driver <span class="req">*</span></label>
-            <input type="text" id="driver_name" placeholder="Auto-fills from vehicle reg" required readonly
-              style="background:#f9fafb;color:#555">
+            <select id="driver_name" required>
+              <option value="">Select driver...</option>
+            </select>
           </div>
           <div class="field">
             <label>Trailer Number</label>
-            <input type="text" id="trailer_number" placeholder="e.g. B6367397 GB" style="text-transform:uppercase">
+            <input type="text" id="trailer_number" list="trailerList" value="4201" style="text-transform:uppercase" autocomplete="off">
+            <datalist id="trailerList"></datalist>
           </div>
         </div>
         <div class="row-2">
@@ -658,8 +653,39 @@ async function loadConfig() {
     const res = await fetch("/api/config");
     const cfg = await res.json();
 
-    // Store vehicle map for auto-fill
+    // Populate driver dropdown
+    const driverSel = document.getElementById("driver_name");
+    driverSel.innerHTML = '<option value="">Select driver...</option>';
+    (cfg.drivers || []).forEach(d => {
+      const opt = document.createElement("option");
+      opt.value = opt.textContent = d;
+      driverSel.appendChild(opt);
+    });
+
+    // Populate trailer datalist
+    const trailerList = document.getElementById("trailerList");
+    (cfg.trailers || []).forEach(t => {
+      const opt = document.createElement("option");
+      opt.value = t;
+      trailerList.appendChild(opt);
+    });
+
+    // Store vehicle map + populate reg dropdown
     _vehicleMap = cfg.vehicles || {};
+    const regSel = document.getElementById("vehicle_reg");
+    regSel.innerHTML = '<option value="">Select registration</option>';
+    Object.keys(_vehicleMap).forEach(reg => {
+      const opt = document.createElement("option");
+      opt.value = opt.textContent = reg;
+      regSel.appendChild(opt);
+    });
+
+    // Default to first vehicle and trigger auto-fill
+    const firstReg = Object.keys(_vehicleMap)[0];
+    if (firstReg) {
+      regSel.value = firstReg;
+      regSel.dispatchEvent(new Event("change"));
+    }
 
     // Populate collection address presets
     const presetSel = document.getElementById("collectionPreset");
@@ -713,19 +739,17 @@ async function loadDeliveryHistory() {
 loadConfig();
 loadDeliveryHistory();
 
-// ─── Vehicle Reg → Auto-fill Type + Driver ──────────────────────────────────
+// ─── Vehicle Reg → Auto-fill Type + Driver + Trailer ────────────────────────
 document.getElementById("vehicle_reg").addEventListener("change", function() {
   const v = _vehicleMap[this.value];
   if (v) {
-    // Auto-fill vehicle type
-    const typeEl = document.getElementById("vehicle_type");
-    for (let i = 0; i < typeEl.options.length; i++) {
-      if (typeEl.options[i].text === v.type) { typeEl.selectedIndex = i; break; }
+    // Auto-fill driver (select matching option)
+    const driverSel = document.getElementById("driver_name");
+    for (let i = 0; i < driverSel.options.length; i++) {
+      if (driverSel.options[i].value === v.driver) { driverSel.selectedIndex = i; break; }
     }
-    // Auto-fill driver name
-    document.getElementById("driver_name").value = v.driver || "";
-  } else {
-    document.getElementById("driver_name").value = "";
+    // Auto-fill trailer number
+    if (v.trailer) document.getElementById("trailer_number").value = v.trailer.toUpperCase();
   }
 });
 
